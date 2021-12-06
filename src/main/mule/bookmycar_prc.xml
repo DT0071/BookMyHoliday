@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<os:object-store name="bookingIDStote" doc:name="Object store" doc:id="ac18cba6-c0f7-4f2f-b42b-f56ae1195577" />
+	<flow name="starterFlow" doc:id="cbc60191-d0bb-40b3-9259-9c05b2efb2dd" initialState="stopped">
+		<scheduler doc:name="Scheduler" doc:id="c9e4ca40-5eb2-486e-8686-fb453eeb9672" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="5" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<file:read doc:name="fileRead" doc:id="063b9242-80e2-4868-844f-4b6fb5bdd61b" path=" C:\Users\shreyasshekhar\Desktop\input.csv" outputMimeType="application/csv"/>
+		<os:retrieve doc:id="83142609-378b-4d5f-8f78-e6b4723dcec3" key="lastBookingID" target="lastBookingID" objectStore="bookingIDStote" targetValue="#[payload as Number]">
+			<os:default-value ><![CDATA[0]]></os:default-value>
+		</os:retrieve>
+		<ee:transform doc:name="Transform Message" doc:id="052eb4d0-efab-4b9e-a078-67c1067f6fa3">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="ad5b4b9d-64b9-4ec8-bc21-8b5a16b4afa3" name="setMaxID"/>
+		<choice doc:name="Choice" doc:id="64560ca8-7012-451c-9df4-be0d68ab7a75" >
+			<when expression="#[vars.maxBookingID &gt; vars.lastBookingID]">
+				<logger level="INFO" doc:name="Logger" doc:id="0b3042b3-aec4-43a8-867b-f1a5c40392a9" message="New Record Found"/>
+				<ee:transform doc:name="Transform Message" doc:id="ab5eaa5c-310e-43eb-b7ef-428c9070fdcf" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload filter((item,index)->item.ID>vars.lastBookingID)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<os:store doc:name="Store" doc:id="b08f7062-106e-4366-b176-1901059b2035" key="lastBookingID" objectStore="bookingIDStote">
+					<os:value ><![CDATA[#[vars.maxBookingID as Number]]]></os:value>
+				</os:store>
+				<foreach doc:name="For Each" doc:id="41f277a4-1fa4-4346-8624-af7ba3fc8953" >
+					<choice doc:name="Choice" doc:id="a4cba070-b592-47b5-8871-956533b29940" >
+						<when expression='#[payload.CabProvider == "Ola"]'>
+							<ee:transform doc:name="Transform Message" doc:id="aaaf654f-777c-4236-88d1-d22a3a6c9dae" >
+								<ee:message >
+									<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv 
+---
+[{
+	BID: payload.ID,
+	"Passenger Name": payload.Name,
+	"Cab Provider": payload.CabProvider,
+	Source: payload.From,
+	Destination: payload.To
+}]]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<file:write doc:name="Write" doc:id="e6b69148-c05f-48c3-9f3c-63f35e29e3fc" path="C:\Users\shreyasshekhar\Desktop\ola.csv" mode="APPEND" >
+								<file:content ><![CDATA[#[%dw 2.0
+output application/csv header=false
+---
+payload]]]></file:content>
+							</file:write>
+						</when>
+						<otherwise >
+							<ee:transform doc:name="Transform Message" doc:id="590d15dc-c0dc-40a1-8764-ebbc4593bee6" >
+								<ee:message >
+									<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv
+---
+[{
+	BID: payload.ID,
+	"Passenger Name": payload.Name,
+	"Cab Provider": payload.CabProvider,
+	Source: payload.From,
+	Destination: payload.To
+}]]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<file:write doc:name="Write" doc:id="97598143-8246-4781-bfb2-641dc6e0a73d" path="C:\Users\shreyasshekhar\Desktop\uber.csv" mode="APPEND">
+								<file:content ><![CDATA[#[%dw 2.0
+output application/csv header=false
+---
+payload]]]></file:content>
+							</file:write>
+						</otherwise>
+					</choice>
+				</foreach>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="e39daaae-6007-4e01-975a-89aee16e2e9c" message="No Records found"/>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="e94fe66a-27fd-4f9a-9d1e-e180cd308d70" type="FILE:ACCESS_DENIED, FILE:CONNECTIVITY, FILE:ILLEGAL_PATH"/>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="29cf289b-82c2-419f-aa7b-e3ce648584ba" type="OS:KEY_ALREADY_EXISTS, OS:KEY_NOT_FOUND, OS:STORE_NOT_AVAILABLE"/>
+		</error-handler>
+	</flow>
+	<flow name="setMaxID" doc:id="bc4de404-eda8-4d0b-a863-fcb197b4f2d6" >
+		<set-variable value="#[max(payload.ID)]" doc:name="Set Variable" doc:id="d31f430d-f0fa-4db0-99f7-4e1ae2789add" variableName="maxBookingID"/>
+	</flow>
+</mule>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xsi:schemaLocation="
+		http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+	<munit:config name="bookmycar-test-suite.xml" />
+	<munit:test name="bookmycar-test-suite-starterFlowTest" doc:id="86994590-03e2-4385-b284-fcf377834636" description="Test">
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to starterFlow" doc:id="20f1e311-dfe0-421a-9ad0-c57bc4439f52" name="starterFlow"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert-that doc:name="Assert that" doc:id="852c8dc9-f9cf-47c0-986d-728d6ac693b6" expression="#[payload.ID]" is="#[MunitTools::notNullValue()]" />
+		</munit:validation>
+	</munit:test>
+	<munit:test name="bookmycar-test-suite-starterFlowTest1" doc:id="d8e0c271-1e9a-4939-9937-7713fee0a85b" description="Test">
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to starterFlow" doc:id="99516a5b-921c-48f9-8362-3e896301906c" name="starterFlow"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert-that doc:name="Assert that" doc:id="a2ec1622-f025-4faf-923c-afd0b71084fb" is="#[MunitTools::withMediaType('application/JSON')]" expression="#[payload]"/>
+		</munit:validation>
+	</munit:test>
+	<munit:test name="bookmycar-test-suite-starterFlowTest2" doc:id="a977ba47-4631-47ef-918d-b497a4fb15d9" description="Test">
+		<munit:behavior >
+			<munit-tools:mock-when doc:name="Mock when" doc:id="75d95bd0-5b0d-4921-871a-72b2c396e648" processor="file:read">
+				<munit-tools:with-attributes >
+					<munit-tools:with-attribute whereValue="fileRead" attributeName="doc:name" />
+					<munit-tools:with-attribute whereValue="C:\Users\divyanshstiwari\Desktop\PolInput\input.csv" attributeName="path" />
+				</munit-tools:with-attributes>
+				<munit-tools:then-return >
+					<munit-tools:payload value="#[MunitTools::getResourceAsString('sample.csv')]" mediaType="application/csv" />
+				</munit-tools:then-return>
+			</munit-tools:mock-when>
+		</munit:behavior>
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to starterFlow" doc:id="9cf3c5d4-8bcf-4881-9d27-71a644af60c7" name="starterFlow"/>
+		</munit:execution>
+	</munit:test>
+
+
+</mule>

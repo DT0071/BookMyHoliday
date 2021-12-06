@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<ns0:GET_Hotels_GET_InputMessage xmlns:ns0="https://www.example.com/schemas">
+  <hotel_location>Mumbai</hotel_location>
+  <hotel_checkin>2021-11-20</hotel_checkin>
+</ns0:GET_Hotels_GET_InputMessage>

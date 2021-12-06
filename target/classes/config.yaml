@@ -1,0 +1,14 @@
+http:
+  port: "80"
+
+flight:
+  host: "bookmyflight-sys.us-e2.cloudhub.io"
+  port: "80"
+  basepath: "/api"
+  protocol: "HTTP"
+
+hotel:
+  wsdl: "http://bookmyhotel-sys.us-e2.cloudhub.io/ITC_Hotel_Api/default_Port?wsdl"
+  service: "ITC_Hotel_Api"
+  port: "HTTP"
+  address: "http://bookmyhotel-sys.us-e2.cloudhub.io/ITC_Hotel_Api/default_Port"

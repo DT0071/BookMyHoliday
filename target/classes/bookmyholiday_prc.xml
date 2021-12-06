@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<wsc:config name="Web_Service_Consumer_Config" doc:name="Web Service Consumer Config" doc:id="8498b297-40a4-4eff-b139-ec72a285535a" >
+		<wsc:connection wsdlLocation="http://bookmyhotel-sys.us-e2.cloudhub.io/ITC_Hotel_Api/default_Port?wsdl" service="ITC_Hotel_Api" port="default_Port" address="http://bookmyhotel-sys.us-e2.cloudhub.io/ITC_Hotel_Api/default_Port" >
+			<wsc:web-service-security actor="http://schemas.xmlsoap.org/soap/actor/next" />
+		</wsc:connection>
+	</wsc:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="4a9a2810-dfc8-477a-9009-6ec29ff616f9">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="05f96993-4b3a-41c0-8e5e-b7e2cd110b1f" basePath="${flight.basepath}">
+		<http:request-connection port="${flight.port}" host="${flight.host}" protocol="${flight.protocol}"/>
+	</http:request-config>
+	<validation:config name="Validation_Config" doc:name="Validation Config" doc:id="e6167952-00ea-4f5a-9d9f-59ac211625c2" />
+	<configuration-properties doc:name="Configuration properties" doc:id="fc6fa509-9735-402f-8c92-c0f744e0c5c1" file="config.yaml" />
+	<flow name="setVariable" doc:id="c5c3c7a1-b0e8-4a61-894d-0549425ee629" >
+		<set-variable value="#[message.attributes.queryParams.flight_source]" doc:name="flight_source" doc:id="4edd601c-b20d-4e87-86bd-d416c5658427" variableName="flight_source" />
+		<set-variable value="#[message.attributes.queryParams.flight_destination]" doc:name="flight_destination" doc:id="f1137e24-b432-4176-bf47-fe03c9de114c" variableName="flight_destination" />
+	</flow>
+	<flow name="getFlight" doc:id="a68bf631-6b6b-4a9f-852a-204858ee5893" >
+		<http:listener doc:name="Listener" doc:id="620f33aa-751d-4128-ac9b-569d8061776c" config-ref="HTTP_Listener_config" path="/getflight" allowedMethods="GET"/>
+		<flow-ref doc:name="set variable" doc:id="66c4ad10-5130-4c51-b1c2-4713dccbf231" name="setVariable"/>
+		<validation:is-true doc:name="Is Valid Source/Destination" doc:id="728359ee-02ed-401c-823c-d55394e440f4" expression="#[(['MUM','LKO','DEL','BLR','KOL'] contains vars.flight_source) and (['MUM','LKO','DEL','BLR','KOL'] contains vars.flight_destination)]" message="#['Invalid source/destination' ++ ' ' ++ (vars.flight_source and vars.flight_destination default ' ')]">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:INVALID_SOURCE" />
+			<error-mapping targetType="APP:INVALID_DESTINATION" />
+		</validation:is-true>
+		<http:request method="GET" doc:name="Request" doc:id="05c494e4-38b4-4f39-8c92-0b9cb6278622" config-ref="HTTP_Request_configuration" path="/flights">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"flight_source" : attributes.queryParams.flight_source,
+	"flight_destination" : attributes.queryParams.flight_destination
+}]]]></http:query-params>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="e234a611-af0d-415c-a46f-07a5b5c6b594" />
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="57693c8c-6588-4a28-aebc-8137cb57ba57" type="HTTP:METHOD_NOT_ALLOWED">
+				<ee:transform doc:name="Transform Message" doc:id="17410dfc-b504-4675-b39f-0eef7527c04c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message" : "Incorrect Method Input. Please check you method ! " ++ (error.description default "")
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="#[12]" doc:name="Set Variable" doc:id="9295d17e-2986-4c0c-b024-fef264364b98" variableName="code"/>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="postFlight" doc:id="389466a9-0bb9-44f5-a115-7e114ca1af01" >
+		<http:listener doc:name="Listener" doc:id="4213c508-3fa5-447a-b85b-bc57d1c2db76" config-ref="HTTP_Listener_config" path="/postflight" allowedMethods="POST"/>
+		<http:request method="POST" doc:name="Request" doc:id="0659e9fa-46c2-430b-9483-972aa086f636" config-ref="HTTP_Request_configuration" path="/flightBooking_details"/>
+		<ee:transform doc:name="Transform Message" doc:id="0918d71e-d415-4da3-a51a-9c1a43253edc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	payload: "Flight Booked Successfully"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="2a42ff07-f666-4bc3-9545-0defeb6668e3" />
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="35a0fd21-8915-4ca9-9fbe-87053edfcde0" type="HTTP:BAD_REQUEST">
+				<ee:transform doc:name="Transform Message" doc:id="b4afdd96-30e7-43f0-9635-27bd39d23354" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message" : "Please check method body! " ++ (error.description default "")
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable value="#[13]" doc:name="Set Variable" doc:id="b38f26b8-a20c-411b-8a4d-cda78283d69e" variableName="code"/>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="gethotel" doc:id="c2cf14cf-0c14-431e-8cc8-a1c685f9a813" >
+		<http:listener doc:name="Listener" doc:id="8b9d794b-7dbd-46d9-a888-cfa7ebace969" config-ref="HTTP_Listener_config" path="/hotels"/>
+		<set-variable value="#[message.attributes.queryParams.hotel_location]" doc:name="hotel_location" doc:id="aaf656d5-4bbc-449f-8c92-abd794e1f9af" variableName="hotel_location" />
+		<validation:is-true doc:name="Valid Loaction" doc:id="dbe4b9e2-aee8-49e8-8333-c1571da719c9" expression="#[['Mumbai','Delhi','Bangalore','Kolkata'] contains vars.hotel_location]" message="#['Invalid location' ++ ' ' ++ (vars.hotel_location default ' ')]">
+			<error-mapping sourceType="VALIDATION:INVALID_BOOLEAN" targetType="APP:INVALID_HOTEL_LOCATION" />
+			<error-mapping targetType="APP:INVALID_HOTEL_CHECKIN" />
+		</validation:is-true>
+		<ee:transform doc:name="Transform Message" doc:id="c68f86c8-7252-4433-8ee7-edf4909bb8b6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 https://www.example.com/schemas
+---
+{
+	ns0#GET_Hotels_GET_InputMessage: {
+		hotel_location: attributes.queryParams.hotel_location,
+		hotel_checkin: attributes.queryParams.hotel_checkin
+	}
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume operation="GET_Hotels_GET" doc:name="Consume" doc:id="99515cc8-b869-4822-9d6b-46d4b175e4f2" config-ref="Web_Service_Consumer_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="1b131af4-9f72-4e24-abb8-ab55839d1a90" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+---
+payload.body.hotels.hotel]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="24d4f70a-4b95-4694-836f-19015aade0fc" message="#[payload]"/>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="fb202168-8029-4a85-8010-40cc9ec0ffc7" type="WSC:BAD_REQUEST">
+				<ee:transform doc:name="Transform Message" doc:id="2aa52f7b-c2f1-4bff-b9da-bb6f58c4c156" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="c8fce39c-c45d-4770-92d2-25276f1f65d7" type="WSC:CONNECTIVITY">
+				<ee:transform doc:name="Transform Message" doc:id="4ebae792-5762-4a88-bfe5-2cd32febd7ad" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="ce95f9af-8956-47cc-a05a-39e5c1c9b6f4" type="WSC:INVALID_WSDL">
+				<ee:transform doc:name="Transform Message" doc:id="19e30b76-5de8-40dc-bc17-002654ba1016" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="662d9bae-e99d-4d0a-8787-99173d6f5505" type="EXPRESSION">
+				<ee:transform doc:name="Transform Message" doc:id="2a2b1f97-92a8-4b5d-9bbd-8b9ec907a1e7" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="posthotel" doc:id="16dbcbb6-81ed-4767-9a53-587a60c55462" >
+		<http:listener doc:name="Listener" doc:id="eaeb9537-6e53-4637-9b0a-f683d51af8f2" path="/bookhotel" allowedMethods="POST" config-ref="HTTP_Listener_config"/>
+		<ee:transform doc:name="Transform Message" doc:id="eda2b43d-d3ec-4a99-ba65-edbaf3952d9f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 https://www.example.com/schemas
+---
+{
+	ns0#POST_Hotels_POST_InputMessage: {
+		body: {
+		
+			cust_name: payload.cust_name,
+			cust_age: payload.cust_age,
+			cust_phone: payload.cust_phone,
+			cust_checkin: payload.cust_checkin,
+			cust_email: payload.cust_email
+		}
+	}
+	}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume doc:name="Consume" doc:id="9023707f-243e-4aad-8407-7bf13a3084dd" config-ref="Web_Service_Consumer_Config" operation="POST_HotelBookingDetails_POST"/>
+		<ee:transform doc:name="Transform Message" doc:id="de33e989-cc73-4efa-ac1f-0d80dc27aaf1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Hotel Booked Successfully"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="372605b4-2773-4827-b5e0-ecfef3710573" message="#[payload]"/>
+	</flow>
+</mule>
